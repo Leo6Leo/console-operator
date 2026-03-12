@@ -97,6 +97,7 @@ func TestTechPreviewEnabled(t *testing.T) {
 				map[string]string{},          // telemetryConfig
 				"console.test.cluster",       // consoleHost
 				tt.args.techPreviewEnabled,
+				nil, // additionalHosts
 			)
 
 			if err != nil {

@@ -49,12 +49,14 @@ func DefaultConfigMap(
 	telemeterConfig map[string]string,
 	consoleHost string,
 	techPreviewEnabled bool,
+	additionalHosts []string,
 ) (consoleConfigMap *corev1.ConfigMap, unsupportedOverridesHaveMerged bool, err error) {
 
 	apiServerURL := infrastructuresub.GetAPIServerURL(infrastructureConfig)
 
 	defaultBuilder := &consoleserver.ConsoleServerCLIConfigBuilder{}
 	defaultConfig, err := defaultBuilder.Host(consoleHost).
+		AdditionalHosts(additionalHosts).
 		LogoutURL(defaultLogoutURL).
 		Brand(DEFAULT_BRAND).
 		DocURL(DEFAULT_DOC_URL).
@@ -78,6 +80,7 @@ func DefaultConfigMap(
 		userDefinedBuilder = userDefinedBuilder.CustomHostnameRedirectPort(isCustomRoute(activeConsoleRoute))
 	}
 	userDefinedConfig, err := userDefinedBuilder.Host(consoleHost).
+		AdditionalHosts(additionalHosts).
 		LogoutURL(consoleConfig.Spec.Authentication.LogoutRedirect).
 		Brand(operatorConfig.Spec.Customization.Brand).
 		DocURL(operatorConfig.Spec.Customization.DocumentationBaseURL).
