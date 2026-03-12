@@ -128,6 +128,15 @@ func (co *consoleOperator) sync_v400(ctx context.Context, controllerContext fact
 		return statusHandler.FlushAndReturn(techPreviewErr)
 	}
 
+	// Discover additional console hostnames from Ingress componentRoutes
+	additionalHosts := routesub.GetAdditionalRouteHostnames(set.Ingress)
+	for _, spec := range routesub.GetAdditionalComponentRouteSpecs(set.Ingress) {
+		requiredRoute := routesub.AdditionalRoute(spec)
+		if _, _, err := routesub.ApplyRoute(co.routeClient, requiredRoute); err != nil {
+			klog.Errorf("failed to sync additional route %s: %v", spec.Name, err)
+		}
+	}
+
 	cm, cmErrReason, cmErr := co.SyncConfigMap(
 		ctx,
 		set.Operator,
@@ -139,6 +148,7 @@ func (co *consoleOperator) sync_v400(ctx context.Context, controllerContext fact
 		controllerContext.Recorder(),
 		consoleURL.Hostname(),
 		techPreviewEnabled,
+		additionalHosts...,
 	)
 	statusHandler.AddConditions(status.HandleProgressingOrDegraded("ConfigMapSync", cmErrReason, cmErr))
 	if cmErr != nil {
@@ -326,6 +336,7 @@ func (co *consoleOperator) SyncConfigMap(
 	recorder events.Recorder,
 	consoleHost string,
 	techPreviewEnabled bool,
+	additionalHosts ...string,
 ) (consoleConfigMap *corev1.ConfigMap, reason string, err error) {
 
 	managedConfig, mcErr := co.managedNSConfigMapLister.ConfigMaps(api.OpenShiftConfigManagedNamespace).Get(api.OpenShiftConsoleConfigMapName)
@@ -400,6 +411,7 @@ func (co *consoleOperator) SyncConfigMap(
 		telemetryConfig,
 		consoleHost,
 		techPreviewEnabled,
+		additionalHosts,
 	)
 	if err != nil {
 		return nil, "FailedConsoleConfigBuilder", err
