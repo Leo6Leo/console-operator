@@ -54,9 +54,10 @@ func CustomApplyOAuth(client oauthclient.OAuthClientsGetter, required *oauthv1.O
 	return actual, true, err
 }
 
-// registers the console on the oauth client as a valid application
-func RegisterConsoleToOAuthClient(client *oauthv1.OAuthClient, host string, randomBits string) *oauthv1.OAuthClient {
-	SetRedirectURI(client, host)
+// RegisterConsoleToOAuthClient registers the console on the oauth client as a valid application.
+func RegisterConsoleToOAuthClient(client *oauthv1.OAuthClient, host string, randomBits string, additionalHosts ...string) *oauthv1.OAuthClient {
+	allHosts := append([]string{host}, additionalHosts...)
+	SetRedirectURIs(client, allHosts)
 	// client.Secret = randomBits
 	SetSecretString(client, randomBits)
 	return client
@@ -93,12 +94,17 @@ func SetSecretString(client *oauthv1.OAuthClient, randomBits string) *oauthv1.OA
 	return client
 }
 
-// we are the only application for this client
-// in the future we may accept multiple routes
-// for now, we can clobber the slice & reset the entire thing
+// SetRedirectURI sets a single redirect URI for the OAuth client.
 func SetRedirectURI(client *oauthv1.OAuthClient, host string) *oauthv1.OAuthClient {
+	return SetRedirectURIs(client, []string{host})
+}
+
+// SetRedirectURIs sets redirect URIs for all provided hosts on the OAuth client.
+func SetRedirectURIs(client *oauthv1.OAuthClient, hosts []string) *oauthv1.OAuthClient {
 	client.RedirectURIs = []string{}
-	client.RedirectURIs = append(client.RedirectURIs, util.HTTPS(host)+"/auth/callback")
+	for _, host := range hosts {
+		client.RedirectURIs = append(client.RedirectURIs, util.HTTPS(host)+"/auth/callback")
+	}
 	return client
 }
 
