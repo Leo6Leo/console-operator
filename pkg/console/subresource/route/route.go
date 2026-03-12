@@ -64,6 +64,44 @@ func getComponentRouteStatus(ingressConfig *configv1.Ingress, componentName stri
 	return nil
 }
 
+// GetAdditionalComponentRouteSpecs returns componentRoutes entries
+// targeting openshift-console namespace, excluding "console" and "downloads".
+func GetAdditionalComponentRouteSpecs(ingressConfig *configv1.Ingress) []configv1.ComponentRouteSpec {
+	var additional []configv1.ComponentRouteSpec
+	for _, cr := range ingressConfig.Spec.ComponentRoutes {
+		if cr.Namespace != api.OpenShiftConsoleNamespace {
+			continue
+		}
+		if cr.Name == api.OpenShiftConsoleRouteName ||
+			cr.Name == api.OpenShiftConsoleDownloadsRouteName {
+			continue
+		}
+		additional = append(additional, *cr.DeepCopy())
+	}
+	return additional
+}
+
+// GetAdditionalRouteHostnames returns hostnames from additional componentRoutes.
+func GetAdditionalRouteHostnames(ingressConfig *configv1.Ingress) []string {
+	specs := GetAdditionalComponentRouteSpecs(ingressConfig)
+	var hosts []string
+	for _, spec := range specs {
+		hosts = append(hosts, string(spec.Hostname))
+	}
+	return hosts
+}
+
+// AdditionalRoute creates a Route for an additional componentRoute entry.
+// Points directly to console service (not redirect).
+func AdditionalRoute(spec configv1.ComponentRouteSpec) *routev1.Route {
+	route := resourceread.ReadRouteV1OrDie(
+		bindata.MustAsset("assets/routes/console-route.yaml"),
+	)
+	route.Name = string(spec.Name)
+	route.Spec.Host = string(spec.Hostname)
+	return route
+}
+
 func NewRouteConfig(operatorConfig *operatorv1.Console, ingressConfig *configv1.Ingress, routeName string) *RouteConfig {
 	defaultRoute := RouteControllerSpec{
 		Hostname: GetDefaultRouteHost(routeName, ingressConfig),
