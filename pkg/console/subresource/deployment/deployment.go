@@ -39,6 +39,7 @@ const (
 	authnConfigVersionAnnotation                   = "console.openshift.io/authentication-config-version"
 	authnCATrustConfigMapResourceVersionAnnotation = "console.openshift.io/authn-ca-trust-config-version"
 	sessionSecretRVAnnotation                      = "console.openshift.io/session-secret-version"
+	servingCertSecretResourceVersionAnnotation     = "console.openshift.io/serving-cert-secret-version"
 )
 
 var (
@@ -51,6 +52,7 @@ var (
 		trustedCAConfigMapResourceVersionAnnotation,
 		secretResourceVersionAnnotation,
 		consoleImageAnnotation,
+		servingCertSecretResourceVersionAnnotation,
 	}
 )
 
@@ -58,9 +60,10 @@ type volumeConfig struct {
 	name     string
 	readOnly bool
 	path     string
-	// isSecret or isConfigMap are mutually exclusive
+	// isSecret or isConfigMap and isEmptyDir are mutually exclusive
 	isSecret    bool
 	isConfigMap bool
+	isEmptyDir  bool
 	mappedKeys  map[string]string
 }
 
@@ -73,6 +76,7 @@ func DefaultDeployment(
 	trustedCAConfigMap *corev1.ConfigMap,
 	oAuthClientSecret *corev1.Secret,
 	sessionSecret *corev1.Secret,
+	consoleServingCertSecret *corev1.Secret,
 	proxyConfig *configv1.Proxy,
 	infrastructureConfig *configv1.Infrastructure,
 ) *appsv1.Deployment {
@@ -93,6 +97,7 @@ func DefaultDeployment(
 		trustedCAConfigMap,
 		oAuthClientSecret,
 		sessionSecret,
+		consoleServingCertSecret,
 		proxyConfig,
 		infrastructureConfig,
 	)
@@ -200,6 +205,7 @@ func withConsoleAnnotations(
 	trustedCAConfigMap *corev1.ConfigMap,
 	oAuthClientSecret *corev1.Secret,
 	sessionSecret *corev1.Secret,
+	consoleServingCertSecret *corev1.Secret,
 	proxyConfig *configv1.Proxy,
 	infrastructureConfig *configv1.Infrastructure,
 ) {
@@ -211,6 +217,7 @@ func withConsoleAnnotations(
 		infrastructureConfigResourceVersionAnnotation: infrastructureConfig.GetResourceVersion(),
 		secretResourceVersionAnnotation:               oAuthClientSecret.GetResourceVersion(),
 		consoleImageAnnotation:                        util.GetImageEnv("CONSOLE_IMAGE"),
+		servingCertSecretResourceVersionAnnotation:    consoleServingCertSecret.GetResourceVersion(),
 	}
 
 	if authServerCAConfigMap != nil {
@@ -301,6 +308,14 @@ func withConsoleVolumes(
 						},
 						Items: items,
 					},
+				},
+			}
+		}
+		if item.isEmptyDir {
+			vols[i] = corev1.Volume{
+				Name: item.name,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			}
 		}
@@ -518,6 +533,12 @@ func defaultVolumeConfig() []volumeConfig {
 			readOnly:    true,
 			path:        "/var/service-ca",
 			isConfigMap: true,
+		},
+		{
+			name:       "tmp",
+			readOnly:   false,
+			path:       "/tmp",
+			isEmptyDir: true,
 		},
 	}
 }
